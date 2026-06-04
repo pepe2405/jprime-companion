@@ -20,7 +20,7 @@ public class MatchingService {
                 select u.id from users u
                 where u.id <> ?
                 and u.profile_completed = true
-                and not exists (select 1 from swipes s where s.from_user_id = ? and s.to_user_id = u.id and s.action in ('CONNECT','SKIP'))
+                and not exists (select 1 from swipes s where s.from_user_id = ? and s.to_user_id = u.id)
                 and not exists (select 1 from matches m where (m.user1_id = ? and m.user2_id = u.id) or (m.user2_id = ? and m.user1_id = u.id))
                 """, UUID.class, currentUserId, currentUserId, currentUserId, currentUserId);
         return ids.stream()

@@ -272,6 +272,23 @@ select {
   color: #ffffff !important;
 }
 
+.jprime-bottom-nav {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.jprime-bottom-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.jprime-bottom-nav-item {
+  min-width: 5.7rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
 .theme-button-primary,
 .theme-button-secondary,
 .theme-button-ghost,

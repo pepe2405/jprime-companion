@@ -2,11 +2,14 @@ package com.jprime.connect.swipe;
 
 import com.jprime.connect.common.ApiException;
 import com.jprime.connect.common.CurrentUserProvider;
+import com.jprime.connect.discover.MatchingService;
 import jakarta.validation.Valid;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -14,10 +17,12 @@ import java.util.UUID;
 public class SwipeController {
     private final JdbcTemplate jdbc;
     private final CurrentUserProvider currentUser;
+    private final MatchingService matchingService;
 
-    public SwipeController(JdbcTemplate jdbc, CurrentUserProvider currentUser) {
+    public SwipeController(JdbcTemplate jdbc, CurrentUserProvider currentUser, MatchingService matchingService) {
         this.jdbc = jdbc;
         this.currentUser = currentUser;
+        this.matchingService = matchingService;
     }
 
     @PostMapping
@@ -58,6 +63,24 @@ public class SwipeController {
         return new SwipeResponse(true, matchId);
     }
 
+    @GetMapping("/history")
+    List<SwipeHistoryItem> history() {
+        UUID from = currentUser.id();
+        return jdbc.query("""
+                select to_user_id, action, updated_at
+                from swipes
+                where from_user_id = ? and action in ('CONNECT', 'SKIP', 'MAYBE_LATER')
+                order by updated_at desc
+                """, (rs, rowNum) -> {
+            UUID targetUserId = rs.getObject("to_user_id", UUID.class);
+            return new SwipeHistoryItem(
+                    rs.getString("action"),
+                    rs.getObject("updated_at", LocalDateTime.class),
+                    matchingService.candidate(from, targetUserId));
+        }, from);
+    }
+
     public record SwipeRequest(UUID toUserId, String action) {}
     public record SwipeResponse(boolean matched, UUID matchId) {}
+    public record SwipeHistoryItem(String action, LocalDateTime updatedAt, MatchingService.MatchCandidateDto candidate) {}
 }

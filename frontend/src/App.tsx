@@ -29,6 +29,7 @@ type AgendaSnapshotItem = Omit<Talk, 'speaker' | 'description' | 'talkLevel' | '
 type Profile = { id: string; publicId: string; fullName: string; email?: string; roleTitle?: string; company?: string; bio?: string; linkedinUrl?: string; githubUrl?: string; profilePhotoUrl?: string; profileCompleted: boolean; publicProfileEnabled?: boolean; contactInfoVisibleAfterMatch?: boolean; interests: string[]; goals: string[]; talksToDiscuss: string[] }
 type SharedTalk = { talkId: string; title: string; reason: string }
 type Candidate = { userId: string; publicId: string; fullName: string; roleTitle?: string; company?: string; bio?: string; score: number; sharedInterests: string[]; sharedGoals: string[]; sharedTalks: SharedTalk[]; icebreaker: string }
+type SwipeHistoryItem = { action: 'CONNECT' | 'SKIP' | 'MAYBE_LATER'; updatedAt: string; candidate: Candidate }
 type MatchSummary = { matchId: string; fullName: string; roleTitle?: string; company?: string; sharedInterests: string[]; sharedTalks: SharedTalk[]; icebreaker: string; meetingStatus: string }
 type MatchDetail = { matchId: string; otherUser: Profile; sharedInterests: string[]; sharedGoals: string[]; sharedTalks: SharedTalk[]; icebreakers: string[]; meeting?: Meeting | null }
 type Meeting = { id: string; title: string; location: string; startTime: string; endTime: string; note?: string; topic?: string; status?: string }
@@ -167,16 +168,16 @@ function ThemeToggle() {
 }
 
 function DesktopNav() {
-  const items = [['/discover', 'Discover'], ['/agenda', 'Agenda'], ['/discussions', 'Discussions'], ['/forum', 'Forum'], ['/assistant', 'Assistant'], ['/matches', 'Matches'], ['/meetings', 'Meetings'], ['/profile', 'Profile']]
+  const items = [['/discover', 'Discover'], ['/history', 'History'], ['/agenda', 'Agenda'], ['/discussions', 'Discussions'], ['/forum', 'Forum'], ['/assistant', 'Assistant'], ['/matches', 'Matches'], ['/meetings', 'Meetings'], ['/profile', 'Profile']]
   return <nav className="hidden items-center gap-2 md:flex">
     {items.map(([href, label]) => <NavLink key={href} to={href} className={({ isActive }) => `theme-button-ghost rounded-md px-3 py-2 text-sm ${isActive ? 'jprime-nav-active' : ''}`}>{label}</NavLink>)}
   </nav>
 }
 
 function BottomNav() {
-  const items = [['/discover', 'Discover'], ['/agenda', 'Agenda'], ['/discussions', 'Rooms'], ['/forum', 'Forum'], ['/assistant', 'Assistant'], ['/matches', 'Matches'], ['/meetings', 'Meetings'], ['/profile', 'Profile']]
-  return <nav className="theme-header fixed bottom-0 left-1/2 z-20 grid w-full max-w-2xl -translate-x-1/2 grid-cols-8 border-t px-2 py-2 text-xs md:hidden">
-    {items.map(([href, label]) => <NavLink key={href} to={href} className={({ isActive }) => `theme-button-ghost rounded-md px-2 py-2 text-center ${isActive ? 'jprime-nav-active' : ''}`}>{label}</NavLink>)}
+  const items = [['/discover', 'Discover'], ['/history', 'History'], ['/agenda', 'Agenda'], ['/discussions', 'Rooms'], ['/forum', 'Forum'], ['/assistant', 'Assistant'], ['/matches', 'Matches'], ['/meetings', 'Meetings'], ['/profile', 'Profile']]
+  return <nav className="theme-header jprime-bottom-nav fixed bottom-0 left-1/2 z-20 flex w-full max-w-2xl -translate-x-1/2 gap-2 overflow-x-auto border-t px-3 py-2 text-xs md:hidden">
+    {items.map(([href, label]) => <NavLink key={href} to={href} className={({ isActive }) => `theme-button-ghost jprime-bottom-nav-item rounded-md px-3 py-2 text-center ${isActive ? 'jprime-nav-active' : ''}`}>{label}</NavLink>)}
   </nav>
 }
 
@@ -333,6 +334,56 @@ function DiscoverPage() {
       <div className="theme-soft rounded-md border p-4"><p className="theme-muted text-sm">Suggested opener</p><p className="theme-title">{current.icebreaker}</p></div>
       <div className="grid grid-cols-3 gap-2"><Button disabled={!!swipeAnimation} variant="ghost" onClick={() => swipe('SKIP')}>Skip</Button><Button disabled={!!swipeAnimation} variant="secondary" onClick={() => swipe('MAYBE_LATER')}>Maybe</Button><Button disabled={!!swipeAnimation} onClick={() => swipe('CONNECT')}>Connect</Button></div>
     </Card></div>}
+  </div></Shell>
+}
+
+function SwipeHistoryPage() {
+  const [items, setItems] = useState<SwipeHistoryItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busyUserId, setBusyUserId] = useState<string | null>(null)
+  const load = async () => {
+    setLoading(true)
+    try {
+      setItems((await api.get<SwipeHistoryItem[]>('/swipes/history')).data)
+    } finally {
+      setLoading(false)
+    }
+  }
+  useEffect(() => { void load() }, [])
+  const updateVote = async (candidate: Candidate, action: 'SKIP' | 'MAYBE_LATER' | 'CONNECT') => {
+    setBusyUserId(candidate.userId)
+    try {
+      const { data } = await api.post<{ matched: boolean }>('/swipes', { toUserId: candidate.userId, action })
+      toast.success(data.matched ? 'Mutual match created!' : action === 'CONNECT' ? 'Connection sent' : action === 'SKIP' ? 'Moved to skipped' : 'Saved for later')
+      setItems((current) => current.map((item) => item.candidate.userId === candidate.userId ? { ...item, action } : item))
+    } catch (error) {
+      toast.error(errorMessage(error))
+    } finally {
+      setBusyUserId(null)
+    }
+  }
+  return <Shell><div className="mx-auto max-w-5xl">
+    <div className="mb-5">
+      <h1 className="theme-title text-3xl">Vote history</h1>
+      <p className="theme-muted mt-1">See everyone you connected with, skipped, or saved for later.</p>
+    </div>
+    {loading ? <Card>Loading vote history...</Card> : items.length === 0 ? <Card><p className="theme-title text-lg">No votes yet.</p><p className="theme-muted">People you Connect, Skip, or mark Maybe in Discover will appear here.</p></Card> : <div className="grid gap-4 lg:grid-cols-2">
+      {items.map(({ action, candidate, updatedAt }) => <Card key={candidate.userId} className="space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div><h2 className="theme-title text-xl">{candidate.fullName}</h2><p className="theme-muted text-sm">{candidate.roleTitle} {candidate.company && `at ${candidate.company}`}</p></div>
+          <span className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${action === 'CONNECT' ? 'theme-success' : 'theme-soft'}`}>{action === 'CONNECT' ? 'Connected' : action === 'SKIP' ? 'Skipped' : 'Maybe Later'}</span>
+        </div>
+        {candidate.bio && <p className="theme-copy text-sm">{candidate.bio}</p>}
+        <div className="grid gap-4 md:grid-cols-2"><ChipList title="Shared interests" values={candidate.sharedInterests} /><ChipList title="Shared goals" values={candidate.sharedGoals} /></div>
+        {candidate.sharedTalks.length > 0 && <div><h3 className="theme-title mb-2 text-sm">Shared talks</h3>{candidate.sharedTalks.slice(0, 2).map((talk) => <p key={talk.talkId} className="theme-soft mb-2 rounded-md border p-3 text-sm">{talk.title}<br /><span className="theme-muted">{talk.reason}</span></p>)}</div>}
+        <p className="theme-muted text-xs">Last updated {new Date(updatedAt).toLocaleString()}</p>
+        <div className="grid grid-cols-3 gap-2">
+          <Button disabled={busyUserId === candidate.userId} variant="ghost" onClick={() => updateVote(candidate, 'SKIP')}>Skip</Button>
+          <Button disabled={busyUserId === candidate.userId} variant="secondary" onClick={() => updateVote(candidate, 'MAYBE_LATER')}>Maybe</Button>
+          <Button disabled={busyUserId === candidate.userId} onClick={() => updateVote(candidate, 'CONNECT')}>Connect</Button>
+        </div>
+      </Card>)}
+    </div>}
   </div></Shell>
 }
 
@@ -616,6 +667,7 @@ function App() {
     <Route path="/connect/:publicId" element={<PublicConnectPage />} />
     <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
     <Route path="/discover" element={<ProtectedRoute><DiscoverPage /></ProtectedRoute>} />
+    <Route path="/history" element={<ProtectedRoute><SwipeHistoryPage /></ProtectedRoute>} />
     <Route path="/agenda" element={<ProtectedRoute><AgendaPage /></ProtectedRoute>} />
     <Route path="/discussions" element={<ProtectedRoute><DiscussionsPage /></ProtectedRoute>} />
     <Route path="/forum" element={<ProtectedRoute><ForumPage /></ProtectedRoute>} />
