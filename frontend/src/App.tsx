@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios'
 import { QRCodeSVG } from 'qrcode.react'
-import { CalendarDays, LogOut, QrCode, Sparkles } from 'lucide-react'
+import { CalendarDays, LogOut, Sparkles } from 'lucide-react'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { Link, Navigate, NavLink, Route, BrowserRouter as Router, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
@@ -127,8 +127,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
 function Shell({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const [showEventQr, setShowEventQr] = useState(false)
-  const eventJoinUrl = `${window.location.origin}/join/jprime`
   return (
     <div className="theme-shell mx-auto min-h-screen max-w-7xl pb-24 md:pb-0">
       <header className="theme-header sticky top-0 z-10 border-b px-5 py-4 md:px-8">
@@ -142,29 +140,12 @@ function Shell({ children }: { children: ReactNode }) {
           </Link>
           <div className="flex items-center gap-3">
             {user && <DesktopNav />}
-            <Button variant="secondary" onClick={() => setShowEventQr(true)} className="hidden px-3 py-2 sm:inline-flex">
-              <QrCode className="mr-2 h-4 w-4" /> Event QR
-            </Button>
-            <button type="button" onClick={() => setShowEventQr(true)} className="theme-button-secondary rounded-md border px-3 py-2 sm:hidden" aria-label="Show event QR">
-              <QrCode className="h-4 w-4" />
-            </button>
             <ThemeToggle />
           </div>
         </div>
       </header>
       <main className="px-5 py-6 md:px-8 md:py-10">{children}</main>
       {user && <BottomNav />}
-      {showEventQr && <div className="theme-overlay fixed inset-0 z-40 grid place-items-center p-5" onClick={() => setShowEventQr(false)}>
-        <div className="theme-modal w-full max-w-sm rounded-md border p-5 text-center" onClick={(event) => event.stopPropagation()}>
-          <h2 className="theme-title text-2xl">Join jPrime Connect</h2>
-          <p className="theme-muted mt-2 text-sm">Show this QR code at the event. Scanning it opens the landing page.</p>
-          <div className="mt-5 inline-block rounded-md bg-white p-3">
-            <QRCodeSVG value={eventJoinUrl} size={240} bgColor="#ffffff" fgColor="#111111" />
-          </div>
-          <p className="theme-muted mt-4 break-all text-xs">{eventJoinUrl}</p>
-          <Button variant="secondary" onClick={() => setShowEventQr(false)} className="mt-5 w-full">Close</Button>
-        </div>
-      </div>}
     </div>
   )
 }
@@ -195,7 +176,7 @@ function DesktopNav() {
 
 function BottomNav() {
   const items = [['/discover', 'Discover'], ['/history', 'History'], ['/agenda', 'Agenda'], ['/discussions', 'Rooms'], ['/forum', 'Forum'], ['/assistant', 'Assistant'], ['/matches', 'Matches'], ['/meetings', 'Meetings'], ['/profile', 'Profile']]
-  return <nav className="theme-header jprime-bottom-nav fixed bottom-0 left-1/2 z-20 flex w-full max-w-2xl -translate-x-1/2 gap-2 overflow-x-auto border-t px-3 py-2 text-xs md:hidden">
+  return <nav className="theme-header jprime-bottom-nav fixed inset-x-0 bottom-0 z-20 flex w-screen gap-2 overflow-x-auto border-t px-3 py-2 text-xs md:hidden">
     {items.map(([href, label]) => <NavLink key={href} to={href} className={({ isActive }) => `theme-button-ghost jprime-bottom-nav-item rounded-md px-3 py-2 text-center ${isActive ? 'jprime-nav-active' : ''}`}>{label}</NavLink>)}
   </nav>
 }
@@ -620,7 +601,6 @@ function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [showQr, setShowQr] = useState(false)
   const [interests, setInterests] = useState<Lookup[]>([])
   const [goals, setGoals] = useState<Lookup[]>([])
   const [form, setForm] = useState({ fullName: '', roleTitle: '', company: '', bio: '', linkedinUrl: '', githubUrl: '', profilePhotoUrl: '', publicProfileEnabled: true, contactInfoVisibleAfterMatch: true })
@@ -658,7 +638,8 @@ function ProfilePage() {
     finally { setSaving(false) }
   }
   const url = `${window.location.origin}/connect/${profile?.publicId ?? user?.publicId}`
-  return <Shell><div className="mb-5 flex items-center justify-between gap-4"><h1 className="theme-title text-3xl">Profile</h1>{profile && <Button variant={editing ? 'ghost' : 'secondary'} onClick={() => setEditing(!editing)}>{editing ? 'Cancel' : 'Edit profile'}</Button>}</div>{profile && <Card className="space-y-5">{editing ? <div className="space-y-4"><div className="grid gap-3 lg:grid-cols-2"><Field placeholder="Full name" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} /><Field placeholder="Role/title" value={form.roleTitle} onChange={(e) => setForm({ ...form, roleTitle: e.target.value })} /><Field placeholder="Company" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} /><Field placeholder="Profile photo URL" value={form.profilePhotoUrl} onChange={(e) => setForm({ ...form, profilePhotoUrl: e.target.value })} /><Field placeholder="LinkedIn URL" value={form.linkedinUrl} onChange={(e) => setForm({ ...form, linkedinUrl: e.target.value })} /><Field placeholder="GitHub URL" value={form.githubUrl} onChange={(e) => setForm({ ...form, githubUrl: e.target.value })} /></div><TextArea placeholder="Bio" value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} /><div><h3 className="theme-title mb-2 text-sm">Interests</h3><div className="flex flex-wrap gap-2">{interests.map((item) => <Chip key={item.id} active={selectedInterests.includes(item.id)} onClick={() => toggle(selectedInterests, item.id, setSelectedInterests)}>{item.name}</Chip>)}</div></div><div><h3 className="theme-title mb-2 text-sm">Looking for</h3><div className="flex flex-wrap gap-2">{goals.map((item) => <Chip key={item.id} active={selectedGoals.includes(item.id)} onClick={() => toggle(selectedGoals, item.id, setSelectedGoals)}>{item.name}</Chip>)}</div></div><label className="theme-copy flex items-center gap-2 text-sm"><input type="checkbox" checked={form.publicProfileEnabled} onChange={(e) => setForm({ ...form, publicProfileEnabled: e.target.checked })} /> Public profile visible</label><label className="theme-copy flex items-center gap-2 text-sm"><input type="checkbox" checked={form.contactInfoVisibleAfterMatch} onChange={(e) => setForm({ ...form, contactInfoVisibleAfterMatch: e.target.checked })} /> Show contact info after match</label><Button disabled={saving} onClick={save} className="w-full">{saving ? 'Saving...' : 'Save profile'}</Button></div> : <><h2 className="theme-title text-2xl">{profile.fullName}</h2>{profile.profilePhotoUrl && <img src={profile.profilePhotoUrl} alt={profile.fullName} className="h-24 w-24 rounded-md object-cover" />}<p className="theme-copy">{profile.roleTitle} {profile.company && `at ${profile.company}`}</p><p className="theme-copy">{profile.bio}</p><div className="grid gap-2 text-sm"><p className="theme-muted">LinkedIn: {profile.linkedinUrl || 'Not set'}</p><p className="theme-muted">GitHub: {profile.githubUrl || 'Not set'}</p><p className="theme-muted">Public profile: {profile.publicProfileEnabled === false ? 'Hidden' : 'Visible'}</p><p className="theme-muted">Contact after match: {profile.contactInfoVisibleAfterMatch === false ? 'Hidden' : 'Visible'}</p></div><ChipList title="Interested in" values={profile.interests} /><ChipList title="Looking for" values={profile.goals} /><ChipList title="Talks to discuss" values={profile.talksToDiscuss} /><Button onClick={() => setShowQr(true)} className="w-full"><QrCode className="mr-2 inline h-4 w-4" /> Show My QR</Button><Button variant="ghost" onClick={logout} className="w-full"><LogOut className="mr-2 inline h-4 w-4" /> Logout</Button></>}</Card>}{showQr && <div className="theme-overlay fixed inset-0 z-30 grid place-items-center p-5" onClick={() => setShowQr(false)}><Card><h2 className="theme-title text-xl">My jPrime Connect QR</h2><p className="theme-copy mb-4">Let someone scan this to connect with you.</p><div className="inline-block rounded-md bg-white p-3"><QRCodeSVG value={url} size={240} bgColor="#ffffff" fgColor="#111111" /></div><p className="theme-muted mt-4 break-all text-xs">{url}</p></Card></div>}</Shell>
+  const eventJoinUrl = `${window.location.origin}/join/jprime`
+  return <Shell><div className="mb-5 flex items-center justify-between gap-4"><h1 className="theme-title text-3xl">Profile</h1>{profile && <Button variant={editing ? 'ghost' : 'secondary'} onClick={() => setEditing(!editing)}>{editing ? 'Cancel' : 'Edit profile'}</Button>}</div>{profile && <Card className="space-y-5">{editing ? <div className="space-y-4"><div className="grid gap-3 lg:grid-cols-2"><Field placeholder="Full name" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} /><Field placeholder="Role/title" value={form.roleTitle} onChange={(e) => setForm({ ...form, roleTitle: e.target.value })} /><Field placeholder="Company" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} /><Field placeholder="Profile photo URL" value={form.profilePhotoUrl} onChange={(e) => setForm({ ...form, profilePhotoUrl: e.target.value })} /><Field placeholder="LinkedIn URL" value={form.linkedinUrl} onChange={(e) => setForm({ ...form, linkedinUrl: e.target.value })} /><Field placeholder="GitHub URL" value={form.githubUrl} onChange={(e) => setForm({ ...form, githubUrl: e.target.value })} /></div><TextArea placeholder="Bio" value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} /><div><h3 className="theme-title mb-2 text-sm">Interests</h3><div className="flex flex-wrap gap-2">{interests.map((item) => <Chip key={item.id} active={selectedInterests.includes(item.id)} onClick={() => toggle(selectedInterests, item.id, setSelectedInterests)}>{item.name}</Chip>)}</div></div><div><h3 className="theme-title mb-2 text-sm">Looking for</h3><div className="flex flex-wrap gap-2">{goals.map((item) => <Chip key={item.id} active={selectedGoals.includes(item.id)} onClick={() => toggle(selectedGoals, item.id, setSelectedGoals)}>{item.name}</Chip>)}</div></div><label className="theme-copy flex items-center gap-2 text-sm"><input type="checkbox" checked={form.publicProfileEnabled} onChange={(e) => setForm({ ...form, publicProfileEnabled: e.target.checked })} /> Public profile visible</label><label className="theme-copy flex items-center gap-2 text-sm"><input type="checkbox" checked={form.contactInfoVisibleAfterMatch} onChange={(e) => setForm({ ...form, contactInfoVisibleAfterMatch: e.target.checked })} /> Show contact info after match</label><Button disabled={saving} onClick={save} className="w-full">{saving ? 'Saving...' : 'Save profile'}</Button></div> : <><h2 className="theme-title text-2xl">{profile.fullName}</h2>{profile.profilePhotoUrl && <img src={profile.profilePhotoUrl} alt={profile.fullName} className="h-24 w-24 rounded-md object-cover" />}<p className="theme-copy">{profile.roleTitle} {profile.company && `at ${profile.company}`}</p><p className="theme-copy">{profile.bio}</p><div className="grid gap-2 text-sm"><p className="theme-muted">LinkedIn: {profile.linkedinUrl || 'Not set'}</p><p className="theme-muted">GitHub: {profile.githubUrl || 'Not set'}</p><p className="theme-muted">Public profile: {profile.publicProfileEnabled === false ? 'Hidden' : 'Visible'}</p><p className="theme-muted">Contact after match: {profile.contactInfoVisibleAfterMatch === false ? 'Hidden' : 'Visible'}</p></div><ChipList title="Interested in" values={profile.interests} /><ChipList title="Looking for" values={profile.goals} /><ChipList title="Talks to discuss" values={profile.talksToDiscuss} /><div className="grid gap-4 lg:grid-cols-2"><div className="theme-soft rounded-md border p-4 text-center"><h3 className="theme-title text-lg">My profile QR</h3><p className="theme-muted mb-4 text-sm">Show this QR code so another attendee can open your profile and connect.</p><div className="inline-block rounded-md bg-white p-3"><QRCodeSVG value={url} size={220} bgColor="#ffffff" fgColor="#111111" /></div><p className="theme-muted mt-3 break-all text-xs">{url}</p></div><div className="theme-soft rounded-md border p-4 text-center"><h3 className="theme-title text-lg">Open the app</h3><p className="theme-muted mb-4 text-sm">Show this QR code so attendees can open the jPrime Connect landing page.</p><div className="inline-block rounded-md bg-white p-3"><QRCodeSVG value={eventJoinUrl} size={220} bgColor="#ffffff" fgColor="#111111" /></div><p className="theme-muted mt-3 break-all text-xs">{eventJoinUrl}</p></div></div><Button variant="ghost" onClick={logout} className="w-full"><LogOut className="mr-2 inline h-4 w-4" /> Logout</Button></>}</Card>}</Shell>
 }
 
 function PublicConnectPage() {
