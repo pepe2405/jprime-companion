@@ -127,6 +127,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
 function Shell({ children }: { children: ReactNode }) {
   const { user } = useAuth()
+  const [showEventQr, setShowEventQr] = useState(false)
+  const eventJoinUrl = `${window.location.origin}/join/jprime`
   return (
     <div className="theme-shell mx-auto min-h-screen max-w-7xl pb-24 md:pb-0">
       <header className="theme-header sticky top-0 z-10 border-b px-5 py-4 md:px-8">
@@ -140,12 +142,29 @@ function Shell({ children }: { children: ReactNode }) {
           </Link>
           <div className="flex items-center gap-3">
             {user && <DesktopNav />}
+            <Button variant="secondary" onClick={() => setShowEventQr(true)} className="hidden px-3 py-2 sm:inline-flex">
+              <QrCode className="mr-2 h-4 w-4" /> Event QR
+            </Button>
+            <button type="button" onClick={() => setShowEventQr(true)} className="theme-button-secondary rounded-md border px-3 py-2 sm:hidden" aria-label="Show event QR">
+              <QrCode className="h-4 w-4" />
+            </button>
             <ThemeToggle />
           </div>
         </div>
       </header>
       <main className="px-5 py-6 md:px-8 md:py-10">{children}</main>
       {user && <BottomNav />}
+      {showEventQr && <div className="theme-overlay fixed inset-0 z-40 grid place-items-center p-5" onClick={() => setShowEventQr(false)}>
+        <div className="theme-modal w-full max-w-sm rounded-md border p-5 text-center" onClick={(event) => event.stopPropagation()}>
+          <h2 className="theme-title text-2xl">Join jPrime Connect</h2>
+          <p className="theme-muted mt-2 text-sm">Show this QR code at the event. Scanning it opens the landing page.</p>
+          <div className="mt-5 inline-block rounded-md bg-white p-3">
+            <QRCodeSVG value={eventJoinUrl} size={240} bgColor="#ffffff" fgColor="#111111" />
+          </div>
+          <p className="theme-muted mt-4 break-all text-xs">{eventJoinUrl}</p>
+          <Button variant="secondary" onClick={() => setShowEventQr(false)} className="mt-5 w-full">Close</Button>
+        </div>
+      </div>}
     </div>
   )
 }
